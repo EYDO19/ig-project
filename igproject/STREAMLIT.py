@@ -26,15 +26,9 @@ st.markdown("""
     <hr>
 """, unsafe_allow_html=True)
 
-# =========================
-# LOAD DATA
-# =========================
-@st.cache_data
-import os
-import pandas as pd
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+@st.cache_data
 def load_data():
     movies_path = os.path.join(BASE_DIR, "movies.csv")
     ratings_path = os.path.join(BASE_DIR, "ratings.csv")
