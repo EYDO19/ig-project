@@ -31,8 +31,8 @@ st.markdown("""
 # =========================
 @st.cache_data
 def load_data():
-movies = pd.read_csv("../movies.csv")
-ratings = pd.read_csv("../ratings.csv")
+    movies = pd.read_csv("../movies.csv")
+    ratings = pd.read_csv("../ratings.csv")
 
     movies.columns = movies.columns.str.strip()
     ratings.columns = ratings.columns.str.strip()
