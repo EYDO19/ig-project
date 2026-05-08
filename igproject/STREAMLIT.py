@@ -30,12 +30,17 @@ st.markdown("""
 # LOAD DATA
 # =========================
 @st.cache_data
-def load_data():
-    movies = pd.read_csv("movies.csv")
-    ratings = pd.read_csv("ratings.csv")
+import os
+import pandas as pd
 
-    movies.columns = movies.columns.str.strip()
-    ratings.columns = ratings.columns.str.strip()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def load_data():
+    movies_path = os.path.join(BASE_DIR, "movies.csv")
+    ratings_path = os.path.join(BASE_DIR, "ratings.csv")
+
+    movies = pd.read_csv(movies_path)
+    ratings = pd.read_csv(ratings_path)
 
     return movies, ratings
 
