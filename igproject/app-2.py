@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
+import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import TruncatedSVD
@@ -24,9 +24,13 @@ h1,h2,h3 {color:#FFFBF4;}
 </style>
 """, unsafe_allow_html=True)
 
-movies = pd.read_csv("movies.csv")
-ratings = pd.read_csv("ratings.csv")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+movies_path = os.path.join(BASE_DIR, "movies.csv")
+ratings_path = os.path.join(BASE_DIR, "ratings.csv")
+
+movies = pd.read_csv(movies_path)
+ratings = pd.read_csv(ratings_path)
 movies["title"] = movies["title"].str.lower()
 ratings = ratings.dropna()
 
