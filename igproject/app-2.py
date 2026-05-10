@@ -16,13 +16,66 @@ st.set_page_config(
 # ---------------- CSS ----------------
 st.markdown("""
 <style>
-.stApp {background-color:#11120D;color:#FFFBF4;}
-section[data-testid="stSidebar"] {background-color:#565449;}
-h1,h2,h3 {color:#FFFBF4;}
-.stButton>button {background-color:#D8CFBC;color:#11120D;border-radius:14px;border:none;padding:0.6rem 1.2rem;font-weight:bold;}
-.movie-card {background-color:#565449;padding:15px;border-radius:14px;margin-bottom:10px;}
-.movie-title {font-size:18px;font-weight:bold;}
-.movie-id {color:#D8CFBC;}
+
+/* 🌈 Gradient Background */
+.stApp {
+    background: linear-gradient(135deg, #89f7fe, #66a6ff, #fbc2eb);
+    color: #1a1a1a;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #667eea, #764ba2);
+}
+
+/* Titles */
+h1, h2, h3 {
+    color: #1a1a1a;
+    font-weight: 800;
+}
+
+/* Button */
+.stButton>button {
+    background: linear-gradient(90deg, #ff9a9e, #fad0c4);
+    color: #1a1a1a;
+    border-radius: 16px;
+    border: none;
+    padding: 0.7rem 1.3rem;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* Movie card */
+.movie-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Text styles */
+.movie-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #222;
+}
+
+.movie-id {
+    color: #555;
+}
+
+/* Inputs */
+.stSelectbox, .stNumberInput {
+    background: white;
+    border-radius: 10px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
