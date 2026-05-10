@@ -1,183 +1,117 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import TruncatedSVD
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-# =========================
-# PAGE CONFIG
-# =========================
 st.set_page_config(
-    page_title="🎬 Movie Recommender System",
-    page_icon="🍿",
+    page_title="Movie Recommender AI",
+    page_icon="🎬",
     layout="wide"
 )
 
-# =========================
-# TITLE UI
-# =========================
 st.markdown("""
-    <h1 style='text-align: center; color: #FF4B4B;'>🎬 Hybrid Movie Recommendation System</h1>
-    <h4 style='text-align: center; color: gray;'>Content-Based + Collaborative Filtering (SVD)</h4>
-    <hr>
+<style>
+.stApp {background-color:#11120D;color:#FFFBF4;}
+section[data-testid="stSidebar"] {background-color:#565449;}
+h1,h2,h3 {color:#FFFBF4;}
+.stButton>button {background-color:#D8CFBC;color:#11120D;border-radius:14px;border:none;padding:0.6rem 1.2rem;font-weight:bold;}
+.movie-card {background-color:#565449;padding:20px;border-radius:18px;margin-bottom:15px;}
+.movie-title {font-size:20px;font-weight:bold;color:#FFFBF4;}
+.movie-id {color:#D8CFBC;margin-top:6px;}
+</style>
 """, unsafe_allow_html=True)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+movies = pd.read_csv("movies.csv")
+ratings = pd.read_csv("ratings.csv")
 
-@st.cache_data
-def load_data():
-    movies_path = os.path.join(BASE_DIR, "movies.csv")
-    ratings_path = os.path.join(BASE_DIR, "ratings.csv")
+movies["title"] = movies["title"].str.lower()
+ratings = ratings.dropna()
 
-    movies = pd.read_csv(movies_path)
-    ratings = pd.read_csv(ratings_path)
+tfidf = TfidfVectorizer(stop_words="english")
+tfidf_matrix = tfidf.fit_transform(movies["genres"].fillna(""))
 
-    return movies, ratings
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
-movies, ratings = load_data()
-
-# =========================
-# CONTENT MODEL
-# =========================
-@st.cache_resource
-def build_content_model(movies):
-    movies["genres"] = movies["genres"].fillna("").astype(str)
-
-    tfidf = TfidfVectorizer(stop_words="english")
-    tfidf_matrix = tfidf.fit_transform(movies["genres"])
-
-    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-
-    title_to_index = pd.Series(movies.index, index=movies["title"]).drop_duplicates()
-
-    return cosine_sim, title_to_index
-
-cosine_sim, title_to_index = build_content_model(movies)
-
-# =========================
-# COLLAB MODEL
-# =========================
-@st.cache_resource
-def build_collab_model(ratings):
-    train, test = train_test_split(ratings, test_size=0.2, random_state=42)
-
-    user_item = train.pivot_table(
-        index="userId",
-        columns="movieId",
-        values="rating"
-    ).fillna(0)
-
-    svd = TruncatedSVD(n_components=50, random_state=42)
-    matrix = svd.fit_transform(user_item)
-    reconstructed = np.dot(matrix, svd.components_)
-
-    user_map = {u: i for i, u in enumerate(user_item.index)}
-
-    return user_item, reconstructed, user_map
-
-user_item, reconstructed, user_map = build_collab_model(ratings)
-
-# =========================
-# FUNCTIONS
-# =========================
+title_to_index = pd.Series(movies.index, index=movies["title"]).drop_duplicates()
 
 def content_recommend(title, top_n=10):
+    title = title.lower()
     if title not in title_to_index:
-        return []
+        return movies.sample(top_n)[["movieId","title"]].to_dict("records")
 
     idx = title_to_index[title]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:top_n+1]
-    movie_idx = [i[0] for i in sim_scores]
+    idxs = [i[0] for i in sim_scores]
+    return movies.iloc[idxs][["movieId","title"]].to_dict("records")
 
-    return movies.iloc[movie_idx]
+user_item = ratings.pivot_table(index="userId", columns="movieId", values="rating").fillna(0)
 
+svd = TruncatedSVD(n_components=50, random_state=42)
+mat = svd.fit_transform(user_item)
+recon = np.dot(mat, svd.components_)
+
+user_map = {u:i for i,u in enumerate(user_item.index)}
+movie_ids = list(user_item.columns)
 
 def collab_recommend(user_id, top_n=10):
     if user_id not in user_map:
-        return pd.DataFrame()
+        return movies.sample(top_n)[["movieId","title"]].to_dict("records")
 
-    idx = user_map[user_id]
-    scores = reconstructed[idx]
+    uidx = user_map[user_id]
+    scores = recon[uidx]
 
     top = np.argsort(scores)[::-1][:top_n]
-    movie_ids = [user_item.columns[i] for i in top]
+    ids = [movie_ids[i] for i in top]
 
-    return movies[movies["movieId"].isin(movie_ids)]
-
+    return movies[movies["movieId"].isin(ids)][["movieId","title"]].to_dict("records")
 
 def hybrid_recommend(user_id, title, top_n=10):
-    c = content_recommend(title, top_n * 2)
-    col = collab_recommend(user_id, top_n * 2)
+    c = content_recommend(title, top_n*2)
+    cf = collab_recommend(user_id, top_n*2)
 
     scores = {}
 
-    for i, m in enumerate(c["movieId"]):
-        scores[m] = scores.get(m, 0) + 1 / (i + 1)
+    for i,m in enumerate(c):
+        scores[m["movieId"]] = scores.get(m["movieId"],0) + 1/(i+1)
 
-    for i, m in enumerate(col["movieId"]):
-        scores[m] = scores.get(m, 0) + 1 / (i + 1)
+    for i,m in enumerate(cf):
+        scores[m["movieId"]] = scores.get(m["movieId"],0) + 1/(i+1)
 
-    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    top_ids = [m[0] for m in ranked[:top_n]]
+    ranked = sorted(scores.items(), key=lambda x:x[1], reverse=True)
+    ids = [i[0] for i in ranked[:top_n]]
 
-    return movies[movies["movieId"].isin(top_ids)]
+    return movies[movies["movieId"].isin(ids)][["movieId","title"]].to_dict("records")
 
-# =========================
-# SIDEBAR UI
-# =========================
-st.sidebar.header("⚙️ Settings")
+st.title("🎬 Movie Recommender AI")
 
-mode = st.sidebar.selectbox(
-    "Choose Recommendation Type",
-    ["🎯 Content-Based", "👥 Collaborative", "🔥 Hybrid"]
-)
-
-user_id = st.sidebar.number_input("User ID", min_value=1, value=1)
-movie_title = st.sidebar.selectbox("Select Movie", movies["title"].unique())
-
-# =========================
-# MAIN UI
-# =========================
-col1, col2 = st.columns([1, 2])
+col1,col2 = st.columns(2)
 
 with col1:
-    st.subheader("🎬 Input")
-    st.write("User ID:", user_id)
-    st.write("Movie:", movie_title)
-
-    run = st.button("🚀 Get Recommendations")
+    selected_movie = st.selectbox("Choose a movie", sorted(movies["title"].unique()))
 
 with col2:
-    st.subheader("🍿 Recommendations")
+    user_id = st.number_input("User ID", min_value=1, value=1)
 
-    if run:
-        if mode == "🎯 Content-Based":
-            result = content_recommend(movie_title)
-        elif mode == "👥 Collaborative":
-            result = collab_recommend(user_id)
-        else:
-            result = hybrid_recommend(user_id, movie_title)
+method = st.radio("Method", ["Content-Based","Collaborative Filtering","Hybrid"])
 
-        if len(result) == 0:
-            st.warning("No recommendations found!")
-        else:
-            for i, row in result.iterrows():
-                st.markdown(
-                    f"""
-                    <div style='padding:10px; margin:5px; border-radius:10px; background:#111; color:white'>
-                        🎬 <b>{row['title']}</b>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+if st.button("Recommend"):
+    if method == "Content-Based":
+        recs = content_recommend(selected_movie)
+    elif method == "Collaborative Filtering":
+        recs = collab_recommend(user_id)
+    else:
+        recs = hybrid_recommend(user_id, selected_movie)
 
-# =========================
-# FOOTER
-# =========================
-st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Made with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+    st.subheader("Results")
+
+    for r in recs:
+        st.markdown(f"""
+        <div class="movie-card">
+        <div class="movie-title">🎥 {r['title']}</div>
+        <div class="movie-id">ID: {r['movieId']}</div>
+        </div>
+        """, unsafe_allow_html=True)
